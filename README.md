@@ -10,5 +10,16 @@ Original repository: [Convolutional Pose Machines - Tensorflow](https://github.c
 
 ## Dataset
 [FLIC Dataset](http://bensapp.github.io/datasets.html)
+### Create dataset
+Prepare data like
+- dataset/person_0/imgs/
+- dataset/person_0/labels.txt
+
+And in **labels.txt**, the data format is *xxx.png, joint_0_x, joint_0_y, joint_1_x, joint_1_y, ...* 
+
+And then run **create_cpm_tfr_fulljoints.py**.
+
+    Please refer to genDataDemo.py to know how to generate labels.txt
 ## Training
+See **train.py** for an example.
 
