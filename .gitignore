@@ -1,6 +1,5 @@
 .idea/*
 .vcscode
-test_imgs/*
 *__pycache__
 logs/*
 dataset/*/imgs/*
