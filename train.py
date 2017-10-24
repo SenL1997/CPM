@@ -2,10 +2,8 @@ import tensorflow as tf
 import numpy as np
 import cv2
 
-
 from utils import cpm_utils, tf_utils
-from models.nets import cpm_hand_slim, cpm_body_slim
-
+from models.nets import cpm_hand_slim, cpm_body_slim, cpm_body
 
 """Hyper Parameters
 """
@@ -29,16 +27,16 @@ tf.app.flags.DEFINE_integer('center_radius',
                             default_value=21,
                             docstring='Center map gaussian variance')
 tf.app.flags.DEFINE_integer('num_of_joints',
-                            default_value=6,
+                            default_value=11,
                             docstring='Number of joints')
 tf.app.flags.DEFINE_integer('batch_size',
                             default_value=32,
                             docstring='Training mini-batch size')
 tf.app.flags.DEFINE_integer('training_iterations',
-                            default_value=1000,
+                            default_value=300,
                             docstring='Training iterations')
 tf.app.flags.DEFINE_integer('lr',
-                            default_value=0.0001,
+                            default_value=0.00003,
                             docstring='Learning rate')
 tf.app.flags.DEFINE_integer('lr_decay_rate',
                             default_value=0.5,
@@ -144,19 +142,26 @@ def main(argv):
 
             # Warp training images
             for img_num in range(batch_x_np.shape[0]):
-                deg1 = (2 * np.random.rand() - 1) * 50
-                deg2 = (2 * np.random.rand() - 1) * 50
+                # deg1 = (2 * np.random.rand() - 1) * 50
+                # deg2 = (2 * np.random.rand() - 1) * 50
+                deg1 = deg2 = 0
                 batch_x_np[img_num, ...] = cpm_utils.warpImage(batch_x_np[img_num, ...],
-                                                           0, deg1, deg2, 1, 30)
+                                                               0, deg1, deg2, 1, 30)
                 batch_y_np[img_num, ...] = cpm_utils.warpImage(batch_y_np[img_num, ...],
-                                                           0, deg1, deg2, 1, 30)
+                                                               0, deg1, deg2, 1, 30)
                 batch_y_np[img_num, :, :, FLAGS.num_of_joints] = np.ones(shape=(FLAGS.input_size, FLAGS.input_size)) - \
                                                                  np.max(
                                                                      batch_y_np[img_num, :, :, 0:FLAGS.num_of_joints],
                                                                      axis=2)
                 batch_c_np[img_num, ...] = cpm_utils.warpImage(batch_c_np[img_num, ...],
-                                                           0, deg1, deg2, 1, 30).reshape(
+                                                               0, deg1, deg2, 1, 30).reshape(
                     (FLAGS.input_size, FLAGS.input_size, 1))
+                
+
+            # batch_x_np (32, 128, 128, 3) -0.5 - 0.5
+            # batch_y_np (32, 128, 128, 12) 0 - 1.0
+            # batch_c_np.shape (32, 128, 128, 1) 0 - 1.0
+            # gt_heatmap_np (32, 16, 16, 12) 0 - 1.0
 
             # Convert image to grayscale
             if FLAGS.color_channel == 'GRAY':
@@ -172,7 +177,19 @@ def main(argv):
                 batch_x_np = batch_x_gray_np
 
             # Recreate heatmaps
-            gt_heatmap_np = cpm_utils.make_gaussian_batch(batch_y_np, FLAGS.heatmap_size, 3)
+            gt_heatmap_np = cpm_utils.make_gaussian_batch(batch_y_np, FLAGS.heatmap_size, 5)
+
+            # for img_num in range(batch_x_np.shape[0]):
+
+                # cv2.imshow('batch_x', batch_x_np[img_num])/
+                # cv2.imshow('gt_heatmap_np', gt_heatmap_np[img_num][:,:,0])
+                # cv2.imshow('batch_c', batch_c_np[img_num])
+                # cv2.waitKey()
+
+            # gt_heatmap_np_t = gt_heatmap_np
+
+            # What the fuck !
+            # batch_x_np = batch_x_np + 0.5
 
             # Update once
             stage_losses_np, total_loss_np, _, summary, current_lr, \
@@ -192,14 +209,14 @@ def main(argv):
             tf_writer.add_summary(summary, global_step)
 
             # Draw intermediate results
-            if global_step % 50 == 0:
-            # if True:
+            # if global_step % 5 == 0:
+            if True:
 
                 if FLAGS.color_channel == 'GRAY':
                     demo_img = np.repeat(batch_x_np[0], 3, axis=2)
                     demo_img += 0.5
                 elif FLAGS.color_channel == 'RGB':
-                    demo_img = batch_x_np[0] + 0.5
+                    demo_img = batch_x_np[0]+0.5
                 demo_stage_heatmaps = []
                 for stage in range(FLAGS.stages):
                     demo_stage_heatmap = stage_heatmap_np[stage][0, :, :, 0:FLAGS.num_of_joints].reshape(
@@ -217,6 +234,13 @@ def main(argv):
                 demo_gt_heatmap = np.reshape(demo_gt_heatmap, (FLAGS.input_size, FLAGS.input_size, 1))
                 demo_gt_heatmap = np.repeat(demo_gt_heatmap, 3, axis=2)
 
+                # if FLAGS.stages > 4:
+                #     upper_img = np.concatenate((gt_heatmap_np[0], gt_heatmap_np[1], gt_heatmap_np[2]), axis=1)
+                #     lower_img = np.concatenate((gt_heatmap_np[3], gt_heatmap_np[4], gt_heatmap_np[5]), axis=1)
+                #     emo_img = np.concatenate((upper_img, lower_img), axis=0)
+                #     cv2.imshow('current heatmap', (emo_img * 255).astype(np.uint8))
+                #     cv2.waitKey(1000)
+
                 if FLAGS.stages > 4:
                     upper_img = np.concatenate((demo_stage_heatmaps[0], demo_stage_heatmaps[1], demo_stage_heatmaps[2]),
                                                axis=1)
@@ -225,12 +249,12 @@ def main(argv):
                                                axis=1)
                     demo_img = np.concatenate((upper_img, lower_img), axis=0)
                     cv2.imshow('current heatmap', (demo_img * 255).astype(np.uint8))
-                    cv2.waitKey()
+                    cv2.waitKey(1000)
                 else:
                     upper_img = np.concatenate((demo_stage_heatmaps[FLAGS.stages - 1], demo_gt_heatmap, demo_img),
                                                axis=1)
                     cv2.imshow('current heatmap', (upper_img * 255).astype(np.uint8))
-                    cv2.waitKey()
+                    cv2.waitKey(1000)
 
             print('##========Iter {:>6d}========##'.format(global_step))
             print('Current learning rate: {:.8f}'.format(current_lr))

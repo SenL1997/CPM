@@ -7,14 +7,15 @@ import time
 import random
 import os
 import codecs
+from skimage import io
 
 tfr_file = 'cpm_sample_dataset.tfrecords'
 dataset_dir = 'dataset'
 
 SHOW_INFO = False
 box_size = 128
-num_of_joints = 6
-gaussian_radius = 4
+num_of_joints = 11
+gaussian_radius = 2
 
 
 def _bytes_feature(value):
@@ -52,7 +53,7 @@ for person_dir in os.listdir(dataset_dir):
         
 
         # Read in bbox and joints coords
-        # tmp = [float(x) for x in line[1:5]]
+        cur_hand_bbox = [float(x) for x in line[1:5]]
         # cur_hand_bbox = [min([tmp[0], tmp[2]]),
         #                  min([tmp[1], tmp[3]]),
         #                  max([tmp[0], tmp[2]]),
@@ -63,8 +64,14 @@ for person_dir in os.listdir(dataset_dir):
         # if cur_hand_bbox[2] > cur_img.shape[1]: cur_hand_bbox[2] = cur_img.shape[1]
         # if cur_hand_bbox[3] > cur_img.shape[0]: cur_hand_bbox[3] = cur_img.shape[0]
 
-        cur_body_joints_x = [float(i)for i in line[1:13:2]]
-        cur_body_joints_y = [float(i)for i in line[2:13:2]]
+        cur_img = cur_img[int(float(cur_hand_bbox[0])):int(float(cur_hand_bbox[2])),
+                  int(float(cur_hand_bbox[1])):int(float(cur_hand_bbox[3])),
+                  :]
+        cur_body_joints_x = [float(i)for i in line[5:5+2*num_of_joints:2]]
+        cur_body_joints_y = [float(i)for i in line[6:5+2*num_of_joints:2]]
+
+        cur_body_joints_x = [x - cur_hand_bbox[1] for x in cur_body_joints_x]
+        cur_body_joints_y = [x - cur_hand_bbox[0] for x in cur_body_joints_y]
 
         # Display
 
@@ -95,8 +102,8 @@ for person_dir in os.listdir(dataset_dir):
             cur_body_joints_x = map(lambda x: x + (box_size / 2 - math.floor(image.shape[1] / 2)),
                                     cur_body_joints_x)
 
-            cur_body_joints_x = np.asarray(cur_body_joints_x)
-            cur_body_joints_y = np.asarray(cur_body_joints_y)
+            cur_body_joints_x = np.asarray(list(cur_body_joints_x))
+            cur_body_joints_y = np.asarray(list(cur_body_joints_y))
 
             if SHOW_INFO:
                 hmap = np.zeros((box_size, box_size))
@@ -112,6 +119,7 @@ for person_dir in os.listdir(dataset_dir):
                 for i in range(num_of_joints):
                     output_heatmaps[:, :, i] = utils.make_gaussian(box_size, gaussian_radius,
                                                                    [cur_body_joints_x[i], cur_body_joints_y[i]])
+
 
         else:
             scale = box_size / (cur_img.shape[1] * 1.0)
@@ -153,11 +161,12 @@ for person_dir in os.listdir(dataset_dir):
 
         # Create background map
         output_background_map = np.ones((box_size, box_size)) - np.amax(output_heatmaps, axis=2)
+        # cv2.imshow('d', output_background_map)
         output_heatmaps = np.concatenate((output_heatmaps, output_background_map.reshape((box_size, box_size, 1))),
                                          axis=2)
-        # cv2.imshow('', (output_background_map*255).astype(np.uint8))
+        # cv2.imshow('', (output_heatmaps[:,:,0]*255).astype(np.uint8))
         # cv2.imshow('h', (np.amax(output_heatmaps[:, :, 0:21], axis=2)*255).astype(np.uint8))
-        # cv2.waitKey(1000)
+        cv2.waitKey()
 
 
         coords_set = np.concatenate((np.reshape(cur_body_joints_x, (num_of_joints, 1)),

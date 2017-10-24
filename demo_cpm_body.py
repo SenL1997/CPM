@@ -385,7 +385,8 @@ def main(argv):
 def visualize_result(test_img, FLAGS, stage_heatmap_np, kalman_filter_array):
     hm_t = time.time()
     demo_stage_heatmaps = []
-    if FLAGS.DEMO_TYPE == 'MULTI':
+    # if FLAGS.DEMO_TYPE == 'MULTI':
+    if True:
         for stage in range(len(stage_heatmap_np)):
             demo_stage_heatmap = stage_heatmap_np[stage][0, :, :, 0:FLAGS.joints].reshape(
                 (FLAGS.hmap_size, FLAGS.hmap_size, FLAGS.joints))
@@ -485,7 +486,8 @@ def visualize_result(test_img, FLAGS, stage_heatmap_np, kalman_filter_array):
             cv2.fillConvexPoly(test_img, polygon, color=limb_color)
     print('plot limb time %f' % (time.time() - limb_t))
 
-    if FLAGS.DEMO_TYPE == 'MULTI':
+    # if FLAGS.DEMO_TYPE == 'MULTI':
+    if True:
         upper_img = np.concatenate((demo_stage_heatmaps[0], demo_stage_heatmaps[1], demo_stage_heatmaps[2]), axis=1)
         lower_img = np.concatenate((demo_stage_heatmaps[3], demo_stage_heatmaps[len(stage_heatmap_np) - 1], test_img),
                                    axis=1)
