@@ -142,8 +142,8 @@ def main(argv):
 
             # Warp training images
             for img_num in range(batch_x_np.shape[0]):
-                # deg1 = (2 * np.random.rand() - 1) * 50
-                # deg2 = (2 * np.random.rand() - 1) * 50
+                deg1 = (2 * np.random.rand() - 1) * 50
+                deg2 = (2 * np.random.rand() - 1) * 50
                 deg1 = deg2 = 0
                 batch_x_np[img_num, ...] = cpm_utils.warpImage(batch_x_np[img_num, ...],
                                                                0, deg1, deg2, 1, 30)
